@@ -35,7 +35,7 @@ jobs:
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
       # ------------------------------------------------------------
-      # Toolchain GCC 14.2.0 (sama seperti workflow Sultan)
+      # Toolchain GCC 14.2.0 (same as Sultan workflow)
       # ------------------------------------------------------------
       - name: Download and extract GCC 14.2.0 toolchain
         run: |
@@ -103,7 +103,7 @@ jobs:
           DEFCONFIG_PATH="arch/arm64/configs/${{ env.defconfig }}"
           echo "Using defconfig: $DEFCONFIG_PATH"
 
-          # Apply manual hooks patch dari SukiSU_patch (sama seperti workflow Sultan)
+          # Apply manual hooks patch from SukiSU_patch (same as Sultan workflow)
           echo "Applying SukiSU manual hooks patch (scope_min_manual_hooks_v1.6)..."
           patch -p1 -F 3 < "${{ env.suki_dir }}/hooks/scope_min_manual_hooks_v1.6.patch"
 
@@ -122,7 +122,7 @@ jobs:
           CONFIG_IP_SET_HASH_NETIFACE=y CONFIG_IP_SET_LIST_SET=y \
           CONFIG_IP6_NF_NAT=y CONFIG_IP6_NF_TARGET_MASQUERADE=y"
 
-          # Extra configs khusus SukiSU (sama seperti matrix SUKISU)
+          # Extra configs for SukiSU
           extra="CONFIG_KSU_MANUAL_HOOK=y CONFIG_KSU_MANUAL_SU=n CONFIG_COMPAT=y CONFIG_ZRAM_GS_WRITEBACK=y"
           configs="$configs $extra"
 
@@ -155,12 +155,10 @@ jobs:
           cd "${{ env.kernel_dir }}"
 
           echo "Adding SukiSU from SukiSU-Ultra/SukiSU-Ultra (branch susfs-main)..."
-          # Sama seperti workflow Sultan: ambil setup.sh dari susfs-main
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/setup.sh" | bash -s susfs-main
 
           DEFCONFIG_PATH="arch/arm64/configs/${{ env.defconfig }}"
 
-          # KSU configs
           {
             echo "CONFIG_KSU=y"
             echo "CONFIG_KSU_KPROBES_HOOK=n"
@@ -182,7 +180,6 @@ jobs:
           echo "Applying sys.c_fix from WildJames..."
           patch -p1 --fuzz=3 < "${{ env.james_dir }}/sultan/sys.c_fix.patch"
 
-          # Optional: bisa enable KSU_SUSFS di sini kalau mau (sementara biarkan n dulu)
           echo "CONFIG_KSU_SUSFS=n" >> "arch/arm64/configs/${{ env.defconfig }}"
 
       # ------------------------------------------------------------
@@ -198,7 +195,7 @@ jobs:
             zuma-
 
       # ------------------------------------------------------------
-      # Build kernel (sama pola dengan workflow Sultan)
+      # Build kernel
       # ------------------------------------------------------------
       - name: Build the kernel
         run: |
@@ -259,3 +256,93 @@ jobs:
         with:
           name: ${{ env.zip_name }}
           path: "*.zip"
+
+  release:
+    needs: sukisu-build
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # 🧾 Auto-generate kernel changelog from Sultan repo
+      - name: Generate Kernel Changelog
+        id: gen_changelog
+        run: |
+          set -e
+
+          echo "Generating changelog from Sultan kernel source..."
+
+          git clone --depth=50 https://github.com/kerneltoast/android_kernel_google_zuma kernel_src
+          cd kernel_src
+
+          {
+            echo "### 🧾 Kernel Changelog (last 20 commits)"
+            echo ""
+            git log -n 20 --pretty=format:"- [%h](https://github.com/kerneltoast/android_kernel_google_zuma/commit/%H) %s (%cr)"
+            echo ""
+          } > ../kernel_changelog.md
+
+          cd ..
+
+      - name: Generate Release Body
+        id: release_body
+        run: |
+          BUILD_DATE=$(date +"%d/%m/%Y")
+          echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_ENV
+
+          cat << EOF > release_body.md
+⚠️ **Compatibility Notice**
+
+Please verify compatibility with the official Sultan kernel:
+- Upstream repo: https://github.com/kerneltoast/android_kernel_google_zuma  
+- This build follows the latest upstream commits as of build time.  
+- Make sure your ROM Android version matches the intended target (Android 14).  
+
+## ✨ Features
+- SukiSU Ultra integration (susfs-main branch)
+- SUSFS (simonpunk) integration
+- Baseband-guard protection  
+- Automatically built via GitHub Actions CI  
+
+## 📌 Important Notes
+- **Do NOT factory reset** after installing Baseband-guard  
+- Designed for devices based on the Sultan zuma tree (Pixel 8 series, etc.)  
+- Flash at your own risk — always keep a backup and original boot image  
+
+---
+
+EOF
+
+          echo "" >> release_body.md
+          echo "---" >> release_body.md
+          echo "" >> release_body.md
+          cat kernel_changelog.md >> release_body.md
+
+          # 📱 Optional device-specific notes (if you create device_notes.md in this repo)
+          if [ -f "device_notes.md" ]; then
+            echo "" >> release_body.md
+            echo "## 📱 Device-specific Notes" >> release_body.md
+            echo "" >> release_body.md
+            cat device_notes.md >> release_body.md
+            echo "" >> release_body.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "sukisu-${{ github.run_number }}"
+          name: "Sultan SukiSU build #${{ github.run_number }} - ${{ env.BUILD_DATE }}"
+          body_path: release_body.md
+          files: ./artifacts/**/*.zip
