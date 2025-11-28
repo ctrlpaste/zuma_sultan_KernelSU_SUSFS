@@ -67,6 +67,8 @@ jobs:
         run: |
           cd "${{ env.kernel_dir }}"
           DEFCONFIG_PATH="arch/arm64/configs/${{ env.defconfig }}"
+
+          echo "Applying SukiSU manual hooks patch (scope_min_manual_hooks_v1.6)..."
           patch -p1 -F 3 < "${{ env.suki_dir }}/hooks/scope_min_manual_hooks_v1.6.patch"
 
           CONFIGS="CONFIG_TMPFS_XATTR=y CONFIG_TMPFS_POSIX_ACL=y \
@@ -174,14 +176,12 @@ jobs:
           set -e
           ZIP_PATH=$(find ./artifacts -type f -name "*.zip" | head -n1)
           if [ -z "$ZIP_PATH" ]; then
-            echo "No zip file found in artifacts."
+            echo "No zip file found in artifacts"
             exit 1
           fi
 
           ZIP_FILE=$(basename "$ZIP_PATH")
           SHA256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')
-          DATE_TAG="$DATE_TAG"
-          DATE_HUMAN="$DATE_HUMAN"
 
           cat > fkm_sukisu_zuma.json <<EOF
 {
@@ -203,8 +203,8 @@ EOF
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "sukisu-${{ env.DATE_TAG }}"
-          name: "SukiSU Kernel - ${{ env.DATE_HUMAN }}"
+          tag_name: sukisu-${{ env.DATE_TAG }}
+          name: SukiSU Kernel - ${{ env.DATE_HUMAN }}
           body_path: release_notes.txt
           files: |
             ./artifacts/**/*.zip
