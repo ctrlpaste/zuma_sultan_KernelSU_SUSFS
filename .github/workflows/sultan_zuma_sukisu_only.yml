@@ -67,7 +67,6 @@ jobs:
         run: |
           cd "${{ env.kernel_dir }}"
           DEFCONFIG_PATH="arch/arm64/configs/${{ env.defconfig }}"
-
           patch -p1 -F 3 < "${{ env.suki_dir }}/hooks/scope_min_manual_hooks_v1.6.patch"
 
           CONFIGS="CONFIG_TMPFS_XATTR=y CONFIG_TMPFS_POSIX_ACL=y \
@@ -112,7 +111,6 @@ jobs:
 
           cd "${{ env.kernel_dir }}"
           patch -p1 --fuzz=3 < "${{ env.james_dir }}/sultan/sys.c_fix.patch"
-
           echo "CONFIG_KSU_SUSFS=n" >> "arch/arm64/configs/${{ env.defconfig }}"
 
       - name: Cache kernel build
@@ -128,7 +126,6 @@ jobs:
         run: |
           cd "${{ env.kernel_dir }}"
           TOOLCHAIN="$GITHUB_WORKSPACE/gcc-14.2.0-nolibc/aarch64-linux/bin/aarch64-linux-"
-
           make CROSS_COMPILE="${TOOLCHAIN}" CC="${TOOLCHAIN}gcc" -j$(nproc) "${{ env.defconfig }}"
           make CROSS_COMPILE="ccache ${TOOLCHAIN}" CC="ccache ${TOOLCHAIN}gcc" -j$(nproc)
 
@@ -160,47 +157,24 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Generate kernel changelog
+      - name: Prepare release metadata
         run: |
-          git clone --depth=50 https://github.com/kerneltoast/android_kernel_google_zuma sultan_kernel
-          cd sultan_kernel
-          git log -n 20 --pretty=format:"- %h %s (%cr)" > ../kernel_changelog.txt
-          cd ..
+          DATE_TAG=$(date +"%Y%m%d")
+          DATE_HUMAN=$(date +"%Y-%m-%d")
+          echo "DATE_TAG=$DATE_TAG" >> $GITHUB_ENV
+          echo "DATE_HUMAN=$DATE_HUMAN" >> $GITHUB_ENV
 
-      - name: Generate release notes
-        run: |
-          DATE=$(date +"%d/%m/%Y")
-          echo "DATE=$DATE" >> $GITHUB_ENV
-
-          echo "Compatibility Notice" > release_body.txt
-          echo "" >> release_body.txt
-          echo "Verify compatibility with Sultan kernel upstream:" >> release_body.txt
-          echo "https://github.com/kerneltoast/android_kernel_google_zuma" >> release_body.txt
-          echo "" >> release_body.txt
-          echo "Features:" >> release_body.txt
-          echo "- SukiSU Ultra integration" >> release_body.txt
-          echo "- SUSFS integration" >> release_body.txt
-          echo "- Baseband-guard enabled" >> release_body.txt
-          echo "" >> release_body.txt
-
-          echo "Kernel changelog:" >> release_body.txt
-          cat kernel_changelog.txt >> release_body.txt
-
-          if [ -f device_notes.md ]; then
-            echo "" >> release_body.txt
-            echo "Device notes:" >> release_body.txt
-            cat device_notes.md >> release_body.txt
-          fi
+          echo "SukiSU kernel build for Sultan zuma." > release_notes.txt
+          echo "" >> release_notes.txt
+          echo "Build date: $DATE_HUMAN" >> release_notes.txt
+          echo "Target: Android 14, Sultan zuma base, SukiSU susfs-main." >> release_notes.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "sukisu-${{ github.run_number }}"
-          name: "SukiSU Kernel Build #${{ github.run_number }} - ${{ env.DATE }}"
-          body_path: release_body.txt
+          tag_name: "sukisu-${{ env.DATE_TAG }}"
+          name: "SukiSU Kernel - ${{ env.DATE_HUMAN }}"
+          body_path: release_notes.txt
           files: ./artifacts/**/*.zip
