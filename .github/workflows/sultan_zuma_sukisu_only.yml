@@ -126,8 +126,8 @@ jobs:
         run: |
           cd "${{ env.kernel_dir }}"
           TOOLCHAIN="$GITHUB_WORKSPACE/gcc-14.2.0-nolibc/aarch64-linux/bin/aarch64-linux-"
-          make CROSS_COMPILE="${TOOLCHAIN}" CC="${TOOLCHAIN}gcc" -j$(nproc) "${{ env.defconfig }}"
-          make CROSS_COMPILE="ccache ${TOOLCHAIN}" CC="ccache ${TOOLCHAIN}gcc" -j$(nproc)
+          make CROSS_COMPILE="${TOOLCHAIN}" CC="${TOOLCHAIN}gcc" -j"$(nproc)" "${{ env.defconfig }}"
+          make CROSS_COMPILE="ccache ${TOOLCHAIN}" CC="ccache ${TOOLCHAIN}gcc" -j"$(nproc)"
 
       - name: Prepare AnyKernel3
         run: |
@@ -172,7 +172,6 @@ jobs:
       - name: Generate FKM JSON
         run: |
           set -e
-
           ZIP_PATH=$(find ./artifacts -type f -name "*.zip" | head -n1)
           if [ -z "$ZIP_PATH" ]; then
             echo "No zip file found in artifacts."
@@ -181,20 +180,20 @@ jobs:
 
           ZIP_FILE=$(basename "$ZIP_PATH")
           SHA256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')
-          REPO="${GITHUB_REPOSITORY}"
-          TAG="sukisu-${{ env.DATE_TAG }}"
+          DATE_TAG="$DATE_TAG"
+          DATE_HUMAN="$DATE_HUMAN"
 
           cat > fkm_sukisu_zuma.json <<EOF
 {
   "kernel": {
     "name": "Sultan SukiSU Kernel (Zuma)",
-    "version": "${{ env.DATE_HUMAN }}",
-    "link": "https://github.com/${REPO}/releases/download/${TAG}/${ZIP_FILE}",
-    "date": "${{ env.DATE_HUMAN }}",
-    "sha256": "${SHA256}"
+    "version": "$DATE_HUMAN",
+    "link": "https://github.com/$GITHUB_REPOSITORY/releases/download/sukisu-$DATE_TAG/$ZIP_FILE",
+    "date": "$DATE_HUMAN",
+    "sha256": "$SHA256"
   },
   "support": {
-    "link": "https://github.com/${REPO}"
+    "link": "https://github.com/$GITHUB_REPOSITORY"
   }
 }
 EOF
