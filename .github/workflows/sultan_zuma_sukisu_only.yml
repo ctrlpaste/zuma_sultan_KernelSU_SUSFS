@@ -1,7 +1,7 @@
 name: Sultan Zuma SukiSU only
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 on:
@@ -257,3 +257,25 @@ jobs:
         with:
           name: ${{ env.zip_name }}
           path: "*.zip"
+
+  release:
+    needs: sukisu-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: sukisu-${{ github.run_number }}
+          name: SukiSU Kernel build #${{ github.run_number }}
+          body: |
+            Automated SukiSU kernel build for Sultan zuma.
+          files: ./artifacts/**/*.zip
