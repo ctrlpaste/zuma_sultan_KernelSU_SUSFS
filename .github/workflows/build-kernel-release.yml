@@ -92,10 +92,13 @@ jobs:
           tar -xf gcc.tar
           echo "GCC 14.2.0 toolchain extracted successfully"
 
-      - name: Clone Dependencies and set ENV
+           - name: Clone Dependencies and set ENV
         run: |
           ANYKERNEL_BRANCH="sultan-${{ matrix.kernel.codename }}"
-          SUSFS_BRANCH="gki-${{ matrix.kernel.android_version }}-${{ matrix.kernel.kernel_version }}"
+
+          # SUSFS only has gki-android14-6.1 (no 6.1.45 etc)
+          KERNEL_MAJOR_MINOR=$(echo "${{ matrix.kernel.kernel_version }}" | awk -F'.' '{print $1"."$2}')
+          SUSFS_BRANCH="gki-${{ matrix.kernel.android_version }}-${KERNEL_MAJOR_MINOR}"
 
           sudo apt-get install -y --no-install-recommends ccache
           ccache --max-size=2G
@@ -111,7 +114,6 @@ jobs:
           git clone --depth=1 https://github.com/TheWildJames/kernel_patches.git james_patches
           echo "james_dir=$PWD/james_patches" >> $GITHUB_ENV
 
-          # clone source sultan 6.1.45 (branch/tag diset di matrix.kernel.branch)
           git clone --depth=1 https://github.com/kerneltoast/${{ matrix.kernel.repo }} -b "${{ matrix.kernel.branch }}" sultan
           echo "kernel_dir=$PWD/sultan" >> $GITHUB_ENV
 
