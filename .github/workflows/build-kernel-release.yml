@@ -1,4 +1,4 @@
-name: Sultan_zuma_6.145
+name: Sultan_zuma_6.1
 
 permissions:
   contents: write
@@ -23,23 +23,23 @@ jobs:
           - codename: zuma
             repo: "android_kernel_google_zuma"
             android_version: "android14"
-            kernel_version: "6.1.45"
-            branch: "android14-6.1.45" # ubah sesuai nama branch/tag 6.1.45 di repo Sultan
+            kernel_version: "6.1"
             defconfig: zuma_defconfig
             local_version: "-android14-11-g66e758f7d0c0-ab13748739"
             build_date: "Tue Jul  8 09:17:32 UTC 2025"
         build:
-          # - type: KSU
-          #   ksu: true
-          #   repo: "tiann/KernelSU"
-          #   folder: "KernelSU"
-          #   branch: "main"
-          #   exclude: susfsless
-          #   kernel_patches: "../james_patches/next/next_hooks.patch"
-          #   extra_configs: "CONFIG_KPROBES=n"
-          #   susfs_ksu_patches: "../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-          #   ak3_suffix: "_KSU"
 
+         # - type: KSU
+         #   ksu: true
+         #   repo: "tiann/KernelSU"
+         #   folder: "KernelSU"
+         #   branch: "main"
+         #   exclude: susfsless
+         #   kernel_patches: "../james_patches/next/next_hooks.patch"
+         #   extra_configs: "CONFIG_KPROBES=n"
+         #   susfs_ksu_patches: "../susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
+         #   ak3_suffix: "_KSU"
+          
           - type: SukiSU
             ksu: true
             repo: "SukiSU-Ultra/SukiSU-Ultra"
@@ -60,7 +60,7 @@ jobs:
             branch: "main"
             kernel_patches: "sultan/scope-min-hooks-v1.6.patch"
             extra_configs: ""
-
+          
           - type: xxKSU
             ksu: true
             exclude: susfs
@@ -69,7 +69,6 @@ jobs:
             branch: "master"
             kernel_patches: "sultan/scope-min-hooks-v1.6.patch"
             ak3_suffix: "_xxKSU"
-
         exclude:
           - build:
               exclude: susfs
@@ -92,13 +91,10 @@ jobs:
           tar -xf gcc.tar
           echo "GCC 14.2.0 toolchain extracted successfully"
 
-           - name: Clone Dependencies and set ENV
+      - name: Clone Dependencies and set ENV
         run: |
           ANYKERNEL_BRANCH="sultan-${{ matrix.kernel.codename }}"
-
-          # SUSFS only has gki-android14-6.1 (no 6.1.45 etc)
-          KERNEL_MAJOR_MINOR=$(echo "${{ matrix.kernel.kernel_version }}" | awk -F'.' '{print $1"."$2}')
-          SUSFS_BRANCH="gki-${{ matrix.kernel.android_version }}-${KERNEL_MAJOR_MINOR}"
+          SUSFS_BRANCH="gki-${{ matrix.kernel.android_version }}-${{ matrix.kernel.kernel_version }}"
 
           sudo apt-get install -y --no-install-recommends ccache
           ccache --max-size=2G
@@ -107,16 +103,12 @@ jobs:
 
           git clone --depth=1 https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH" AK3
           echo "ak3_dir=$PWD/AK3" >> $GITHUB_ENV
-
           git clone --depth=5 https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" susfs
           echo "susfs_dir=$PWD/susfs" >> $GITHUB_ENV
-
           git clone --depth=1 https://github.com/TheWildJames/kernel_patches.git james_patches
           echo "james_dir=$PWD/james_patches" >> $GITHUB_ENV
-
-          git clone --depth=1 https://github.com/kerneltoast/${{ matrix.kernel.repo }} -b "${{ matrix.kernel.branch }}" sultan
+          git clone --depth=1 https://github.com/kerneltoast/${{ matrix.kernel.repo }} sultan
           echo "kernel_dir=$PWD/sultan" >> $GITHUB_ENV
-
           git clone --depth=1 https://github.com/TheSillyOk/kernel_ls_patches ok_patches
           echo "ok_dir=$PWD/ok_patches" >> $GITHUB_ENV
 
@@ -181,7 +173,7 @@ jobs:
           if [[ -n "${{ matrix.build.susfsless_ksu_patches }}" && "${{ matrix.susfs }}" != "true" ]]; then
             cd "${{ matrix.build.folder }}"
             for patch_name in ${{ matrix.build.susfsless_ksu_patches }}; do
-              patch -p1 < "${{ env.ok_dir }}/${patch_name }}"
+              patch -p1 < "${{ env.ok_dir }}/${patch_name}"
             done
             cd "${{ env.kernel_dir }}"
           fi
@@ -189,7 +181,7 @@ jobs:
           if [[ -n "${{ matrix.build.ksu_patches }}" ]]; then
             cd "${{ matrix.build.folder }}"
             for patch_name in ${{ matrix.build.ksu_patches }}; do
-              patch -p1 < "${{ env.ok_dir }}/${patch_name }}"
+              patch -p1 < "${{ env.ok_dir }}/${patch_name}"
             done
             cd "${{ env.kernel_dir }}"
           fi
@@ -206,6 +198,7 @@ jobs:
       - name: Apply SUSFS Patches
         if: matrix.susfs
         run: |
+
           cp ${{ env.susfs_dir }}/kernel_patches/50_add_susfs_in_gki-${{ matrix.kernel.android_version }}-${{ matrix.kernel.kernel_version }}.patch ${{ env.kernel_dir }}/
           cp ${{ env.susfs_dir }}/kernel_patches/fs/* ${{ env.kernel_dir }}/fs/
           cp ${{ env.susfs_dir }}/kernel_patches/include/linux/* ${{ env.kernel_dir }}/include/linux/
@@ -380,7 +373,7 @@ jobs:
          GH_TOKEN: ${{ github.token }}
         run: |
             gh auth setup-git
-            git clone --depth=1 "https://github.com/${{ github.repository }}" --depth=1 --branch="${{ github.ref_name }}" repo
+            git clone --depth=1 "https://github.com/${{ github.repository }}" --branch="${{ github.ref_name }}" repo
             cd repo
             echo "repo_dir=$PWD" >> $GITHUB_ENV
 
